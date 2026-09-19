@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chemie – Hra: Periodická soustava prvků</title>
+<style>
+:root{
+  --bg1:#0b1220; --bg2:#111e33;
+  --panel:#16233b; --panel2:#1d2f4d;
+  --line:#2c4066;
+  --txt:#eaf2ff; --txt-dim:#9db0cf;
+  --acc:#38bdf8; --acc2:#818cf8;
+  --ok:#22c55e; --bad:#ef4444; --warn:#f59e0b;
+
+  --c-alk:#f2a25c;   /* alkalické kovy */
+  --c-erd:#f7c99b;   /* kovy alkalických zemin */
+  --c-kov:#8cc6ea;   /* kovy */
+  --c-pol:#7fd49b;   /* polokovy */
+  --c-nek:#b8e6c8;   /* nekovy */
+  --c-hal:#cfe15f;   /* halogeny */
+  --c-vzp:#ffe066;   /* vzácné plyny */
+  --c-lan:#c3b4ec;   /* lanthanoidy */
+  --c-akt:#eab4dc;   /* aktinoidy */
+
+  --cw:62px; --ch:62px; --gap:4px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:
+    radial-gradient(1200px 700px at 15% -10%, #1b3157 0%, transparent 60%),
+    radial-gradient(1000px 600px at 95% 0%, #21324f 0%, transparent 55%),
+    linear-gradient(160deg,var(--bg1),var(--bg2));
+  background-attachment:fixed;
+  color:var(--txt);
+  font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+  min-height:100vh;
+  padding-bottom:210px;
+}
+
+/* ---------- HLAVIČKA ---------- */
+header{
+  padding:18px 22px 10px;
+  display:flex;flex-wrap:wrap;align-items:center;gap:14px;
+  border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,rgba(14,25,44,.9),rgba(14,25,44,.35));
+  position:relative;
+}
+.logo{
+  width:52px;height:52px;border-radius:16px;flex:none;
+  background:linear-gradient(135deg,var(--acc),var(--acc2));
+  display:grid;place-items:center;font-size:27px;
+  box-shadow:0 8px 24px rgba(56,189,248,.35);
+}
+h1{font-size:23px;margin:0;letter-spacing:.3px}
+.sub{font-size:13px;color:var(--txt-dim);margin-top:2px}
+.spacer{flex:1}
+
+.stats{display:flex;gap:10px;flex-wrap:wrap}
+.stat{
+  background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  padding:7px 14px;min-width:80px;text-align:center;
+}
+.stat b{display:block;font-size:20px;line-height:1.1}
+.stat span{font-size:10.5px;color:var(--txt-dim);text-transform:uppercase;letter-spacing:.7px}
+.stat.ok b{color:var(--ok)} .stat.bad b{color:var(--bad)} .stat.fire b{color:var(--warn)}
+
+/* ---------- OVLÁDÁNÍ ---------- */
+.controls{padding:14px 22px 6px;display:flex;flex-direction:column;gap:10px}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.row .lbl{font-size:12px;color:var(--txt-dim);text-transform:uppercase;letter-spacing:1px;min-width:74px}
+.chip{
+  background:var(--panel);border:1px solid var(--line);color:var(--txt);
+  padding:8px 15px;border-radius:999px;cursor:pointer;font-size:13.5px;
+  transition:.15s;font-family:inherit;
+}
+.chip:hover{background:var(--panel2);transform:translateY(-1px)}
+.chip.on{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#05121f;font-weight:700;border-color:transparent}
+.btn{
+  background:linear-gradient(135deg,var(--acc),var(--acc2));color:#05121f;font-weight:700;
+  border:0;padding:9px 18px;border-radius:12px;cursor:pointer;font-size:14px;font-family:inherit;
+  box-shadow:0 5px 16px rgba(56,189,248,.28);transition:.15s;
+}
+.btn:hover{transform:translateY(-1px);filter:brightness(1.07)}
+.btn.ghost{background:var(--panel);color:var(--txt);border:1px solid var(--line);box-shadow:none;font-weight:600}
+
+/* ---------- TABULKA ---------- */
+.tablewrap{padding:10px 22px 20px;overflow-x:auto}
+.ptable{
+  display:grid;
+  grid-template-columns:repeat(18,var(--cw));
+  gap:var(--gap);
+  width:max-content;margin:0 auto;
+  position:relative;
+}
+.hdr{
+  height:20px;display:grid;place-items:center;
+  font-size:11px;color:var(--txt-dim);font-weight:700;
+}
+.prow{
+  position:absolute;left:-26px;font-size:11px;color:var(--txt-dim);font-weight:700;
+}
+.cell{
+  height:var(--ch);border-radius:9px;position:relative;cursor:pointer;
+  display:flex;flex-direction:column;justify-content:center;align-items:center;
+  color:#0a1626;overflow:hidden;
+  border:1.5px solid rgba(0,0,0,.14);
+  transition:transform .12s, box-shadow .12s, filter .12s;
+  user-select:none;
+}
+.cell:hover{transform:translateY(-3px) scale(1.04);box-shadow:0 8px 20px rgba(0,0,0,.45);z-index:5}
+.cell .num{position:absolute;top:2px;left:4px;font-size:9px;font-weight:700;opacity:.72}
+.cell .sym{font-size:20px;font-weight:800;line-height:1}
+.cell .nm{font-size:8.5px;font-weight:700;margin-top:2px;text-align:center;line-height:1.05;padding:0 2px;
+  max-width:100%;overflow:hidden}
+.cell .mass{position:absolute;bottom:1px;right:0;left:0;text-align:center;font-size:7.5px;opacity:.6}
+.cell.blank{visibility:hidden;cursor:default}
+.cell.dim{filter:grayscale(.85) brightness(.5);cursor:not-allowed}
+.cell.dim:hover{transform:none;box-shadow:none}
+.cell.sel{outline:3px solid #fff;outline-offset:1px;box-shadow:0 0 0 6px rgba(56,189,248,.45);z-index:6;
+  animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 5px rgba(56,189,248,.45)}50%{box-shadow:0 0 0 11px rgba(56,189,248,.12)}}
+.cell.done{box-shadow:inset 0 0 0 3px var(--ok)}
+.cell.err{box-shadow:inset 0 0 0 3px var(--bad)}
+.cell .mark{
+  position:absolute;top:0;right:0;width:20px;height:20px;border-radius:0 7px 0 9px;
+  display:none;place-items:center;font-size:13px;font-weight:900;color:#fff;
+}
+.cell.done .mark{display:grid;background:var(--ok)}
+.cell.err  .mark{display:grid;background:var(--bad)}
+.cell.shake{animation:shake .4s}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+.cell.pop{animation:pop .45s}
+@keyframes pop{0%{transform:scale(1)}45%{transform:scale(1.22)}100%{transform:scale(1)}}
+
+.c-alk{background:var(--c-alk)} .c-erd{background:var(--c-erd)} .c-kov{background:var(--c-kov)}
+.c-pol{background:var(--c-pol)} .c-nek{background:var(--c-nek)} .c-hal{background:var(--c-hal)}
+.c-vzp{background:var(--c-vzp)} .c-lan{background:var(--c-lan)} .c-akt{background:var(--c-akt)}
+
+.fgap{grid-column:1/19;height:12px}
+.flabel{grid-column:1/4;display:grid;place-items:center;font-size:11px;color:var(--txt-dim);font-weight:700}
+
+/* ---------- LEGENDA ---------- */
+.legend{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;padding:4px 22px 6px}
+.lg{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--txt-dim)}
+.lg i{width:14px;height:14px;border-radius:4px;display:inline-block;border:1px solid rgba(0,0,0,.25)}
+
+/* ---------- SPODNÍ PANEL ---------- */
+.dock{
+  position:fixed;left:0;right:0;bottom:0;z-index:40;
+  background:linear-gradient(180deg,rgba(12,22,40,.72),rgba(10,18,33,.98));
+  backdrop-filter:blur(14px);
+  border-top:1px solid var(--line);
+  padding:14px 22px 16px;
+  box-shadow:0 -12px 40px rgba(0,0,0,.5);
+}
+.dockin{max-width:1180px;margin:0 auto;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.bigcard{
+  width:104px;height:104px;border-radius:18px;flex:none;position:relative;
+  display:flex;flex-direction:column;justify-content:center;align-items:center;color:#0a1626;
+  background:var(--panel2);box-shadow:0 10px 28px rgba(0,0,0,.45);
+}
+.bigcard .bnum{position:absolute;top:6px;left:9px;font-size:12px;font-weight:700;opacity:.75}
+.bigcard .bsym{font-size:40px;font-weight:900;line-height:1}
+.bigcard .bnm{font-size:11px;font-weight:700;margin-top:3px;text-align:center;padding:0 4px}
+.bigcard.c-alk{background:var(--c-alk)} .bigcard.c-erd{background:var(--c-erd)}
+.bigcard.c-kov{background:var(--c-kov)} .bigcard.c-pol{background:var(--c-pol)}
+.bigcard.c-nek{background:var(--c-nek)} .bigcard.c-hal{background:var(--c-hal)}
+.bigcard.c-vzp{background:var(--c-vzp)} .bigcard.c-lan{background:var(--c-lan)}
+.bigcard.c-akt{background:var(--c-akt)}
+.bigcard.empty{background:rgba(255,255,255,.05);color:var(--txt-dim);border:2px dashed var(--line)}
+.qarea{flex:1;min-width:280px}
+.qtitle{font-size:14px;color:var(--txt-dim);margin-bottom:7px}
+.qtitle b{color:var(--acc)}
+.inline{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input[type=text]{
+  flex:1;min-width:190px;background:#0c1729;border:2px solid var(--line);color:var(--txt);
+  padding:13px 16px;border-radius:13px;font-size:19px;font-family:inherit;outline:none;transition:.15s;
+}
+input[type=text]:focus{border-color:var(--acc);box-shadow:0 0 0 4px rgba(56,189,248,.16)}
+input[type=text].good{border-color:var(--ok);box-shadow:0 0 0 4px rgba(34,197,94,.18)}
+input[type=text].wrong{border-color:var(--bad);box-shadow:0 0 0 4px rgba(239,68,68,.18)}
+.feedback{margin-top:9px;font-size:14.5px;min-height:21px}
+.feedback.ok{color:var(--ok);font-weight:700}
+.feedback.bad{color:var(--bad);font-weight:700}
+.feedback.info{color:var(--txt-dim)}
+.infogrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:7px;margin-top:6px;font-size:12.5px}
+.infogrid div{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 10px}
+.infogrid s{display:block;font-size:10px;color:var(--txt-dim);text-decoration:none;text-transform:uppercase;letter-spacing:.6px}
+
+.bar{height:8px;background:var(--panel);border-radius:99px;overflow:hidden;margin-top:11px;border:1px solid var(--line)}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--ok),var(--acc));transition:width .35s}
+
+/* ---------- MODAL ---------- */
+.overlay{
+  position:fixed;inset:0;background:rgba(5,10,20,.8);backdrop-filter:blur(6px);
+  display:none;place-items:center;z-index:100;padding:20px;
+}
+.overlay.show{display:grid}
+.modal{
+  background:linear-gradient(160deg,var(--panel),#101c31);
+  border:1px solid var(--line);border-radius:24px;padding:30px;
+  max-width:620px;width:100%;max-height:86vh;overflow:auto;
+  box-shadow:0 30px 80px rgba(0,0,0,.65);
+}
+.modal h2{margin:0 0 6px;font-size:27px}
+.grade{font-size:74px;font-weight:900;line-height:1;text-align:center;margin:10px 0}
+.pct{text-align:center;font-size:19px;color:var(--txt-dim);margin-bottom:14px}
+.mistakes{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+.mistakes h3{font-size:15px;margin:0 0 9px;color:var(--warn)}
+.mrow{display:flex;justify-content:space-between;gap:10px;padding:7px 11px;background:rgba(239,68,68,.09);
+  border-radius:9px;margin-bottom:5px;font-size:13.5px}
+.mrow b{color:var(--acc)}
+footer{text-align:center;color:var(--txt-dim);font-size:12px;padding:6px 0 14px}
+@media (max-width:760px){
+  :root{--cw:44px;--ch:44px}
+  .cell .sym{font-size:15px} .cell .nm{font-size:6.5px} .cell .mass{display:none}
+  h1{font-size:18px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">⚗️</div>
+  <div>
+    <h1>Periodická soustava prvků – procvičování</h1>
+    <div class="sub">Klikni na okénko a doplň, co chybí. Zelená fajfka = správně, červený křížek = chyba.</div>
+  </div>
+  <div class="spacer"></div>
+  <div class="stats">
+    <div class="stat ok"><b id="sOk">0</b><span>správně</span></div>
+    <div class="stat bad"><b id="sBad">0</b><span>chyby</span></div>
+    <div class="stat fire"><b id="sStreak">0</b><span>v řadě 🔥</span></div>
+    <div class="stat"><b id="sLeft">0</b><span>zbývá</span></div>
+    <div class="stat"><b id="sTime">0:00</b><span>čas</span></div>
+  </div>
+</header>
+
+<div class="controls">
+  <div class="row">
+    <span class="lbl">Režim</span>
+    <button class="chip on" data-mode="name">🔤 Vidím značku → píšu český název</button>
+    <button class="chip" data-mode="sym">🧬 Vidím název → píšu značku</button>
+    <button class="chip" data-mode="learn">📖 Učení (jen prohlížení)</button>
+  </div>
+  <div class="row">
+    <span class="lbl">Rozsah</span>
+    <button class="chip on" data-range="20">Prvních 20 (H–Ca)</button>
+    <button class="chip" data-range="36">Prvních 36 (H–Kr)</button>
+    <button class="chip" data-range="56">Prvních 56 (H–Ba)</button>
+    <button class="chip" data-range="main">Hlavní skupiny (A)</button>
+    <button class="chip" data-range="118">Celá tabulka (118)</button>
+  </div>
+  <div class="row">
+    <span class="lbl">Nastavení</span>
+    <button class="chip on" id="bAuto">➡️ Automaticky další</button>
+    <button class="chip on" id="bSound">🔊 Zvuk</button>
+    <button class="chip" id="bShuffle">🎲 Náhodné pořadí</button>
+    <div class="spacer"></div>
+    <button class="btn ghost" id="bStart">▶️ Začít / Restart</button>
+    <button class="btn ghost" id="bReveal">👁️ Ukázat vše</button>
+    <button class="btn" id="bFinish">🏁 Vyhodnotit</button>
+  </div>
+</div>
+
+<div class="legend" id="legend"></div>
+
+<div class="tablewrap"><div class="ptable" id="ptable"></div></div>
+
+<footer>Tip: odpověď potvrdíš klávesou <b>Enter</b>. Diakritika ani velká písmena se nehlídají – „zelezo“ projde stejně jako „Železo“.</footer>
+
+<div class="dock">
+  <div class="dockin">
+    <div class="bigcard empty" id="bigcard"><span style="font-size:32px">❔</span></div>
+    <div class="qarea">
+      <div class="qtitle" id="qtitle">Vyber si režim a rozsah, pak klikni na libovolné okénko v tabulce.</div>
+      <div class="inline">
+        <input type="text" id="answer" placeholder="Sem napiš odpověď a stiskni Enter…" autocomplete="off" spellcheck="false" disabled>
+        <button class="btn" id="bCheck">✓ Zkontrolovat</button>
+        <button class="btn ghost" id="bHint">💡 Nápověda</button>
+        <button class="btn ghost" id="bSkip">⏭️ Přeskočit</button>
+      </div>
+      <div class="feedback info" id="feedback"></div>
+      <div class="bar"><i id="bar"></i></div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
+
+<script>
+/* ============ DATA PRVKŮ ============
+   [Z, značka, český název, skupina, perioda, kategorie, hmotnost, [alternativy]] */
+const CAT = {
+  alk:['c-alk','alkalický kov'], erd:['c-erd','kov alkalických zemin'], kov:['c-kov','kov'],
+  pol:['c-pol','polokov'], nek:['c-nek','nekov'], hal:['c-hal','halogen'],
+  vzp:['c-vzp','vzácný plyn'], lan:['c-lan','lanthanoid'], akt:['c-akt','aktinoid']
+};
+const E = [
+[1,'H','Vodík',1,1,'nek','1,008'],
+[2,'He','Helium',18,1,'vzp','4,003',['hélium']],
+[3,'Li','Lithium',1,2,'alk','6,94',['litium']],
+[4,'Be','Beryllium',2,2,'erd','9,012',['berylium']],
+[5,'B','Bor',13,2,'pol','10,81'],
+[6,'C','Uhlík',14,2,'nek','12,01'],
+[7,'N','Dusík',15,2,'nek','14,01'],
+[8,'O','Kyslík',16,2,'nek','16,00'],
+[9,'F','Fluor',17,2,'hal','19,00',['fluór']],
+[10,'Ne','Neon',18,2,'vzp','20,18'],
+[11,'Na','Sodík',1,3,'alk','22,99'],
+[12,'Mg','Hořčík',2,3,'erd','24,31'],
+[13,'Al','Hliník',13,3,'kov','26,98'],
+[14,'Si','Křemík',14,3,'pol','28,09'],
+[15,'P','Fosfor',15,3,'nek','30,97'],
+[16,'S','Síra',16,3,'nek','32,06'],
+[17,'Cl','Chlor',17,3,'hal','35,45',['chlór']],
+[18,'Ar','Argon',18,3,'vzp','39,95'],
+[19,'K','Draslík',1,4,'alk','39,10'],
+[20,'Ca','Vápník',2,4,'erd','40,08'],
+[21,'Sc','Skandium',3,4,'kov','44,96'],
+[22,'Ti','Titan',4,4,'kov','47,87',['titanium']],
+[23,'V','Vanad',5,4,'kov','50,94',['vanadium']],
+[24,'Cr','Chrom',6,4,'kov','52,00',['chróm']],
+[25,'Mn','Mangan',7,4,'kov','54,94'],
+[26,'Fe','Železo',8,4,'kov','55,85'],
+[27,'Co','Kobalt',9,4,'kov','58,93'],
+[28,'Ni','Nikl',10,4,'kov','58,69'],
+[29,'Cu','Měď',11,4,'kov','63,55'],
+[30,'Zn','Zinek',12,4,'kov','65,38'],
+[31,'Ga','Gallium',13,4,'kov','69,72',['galium']],
+[32,'Ge','Germanium',14,4,'pol','72,63'],
+[33,'As','Arsen',15,4,'pol','74,92',['arzen']],
+[34,'Se','Selen',16,4,'nek','78,97',['selenium']],
+[35,'Br','Brom',17,4,'hal','79,90',['bróm']],
+[36,'Kr','Krypton',18,4,'vzp','83,80'],
+[37,'Rb','Rubidium',1,5,'alk','85,47'],
+[38,'Sr','Stroncium',2,5,'erd','87,62',['strontium']],
+[39,'Y','Yttrium',3,5,'kov','88,91',['ytrium']],
+[40,'Zr','Zirkonium',4,5,'kov','91,22',['zirconium','zirkon']],
+[41,'Nb','Niob',5,5,'kov','92,91',['niobium']],
+[42,'Mo','Molybden',6,5,'kov','95,95'],
+[43,'Tc','Technecium',7,5,'kov','98',['technetium']],
+[44,'Ru','Ruthenium',8,5,'kov','101,1',['rutenium']],
+[45,'Rh','Rhodium',9,5,'kov','102,9',['rodium']],
+[46,'Pd','Palladium',10,5,'kov','106,4',['paladium']],
+[47,'Ag','Stříbro',11,5,'kov','107,9'],
+[48,'Cd','Kadmium',12,5,'kov','112,4',['cadmium']],
+[49,'In','Indium',13,5,'kov','114,8'],
+[50,'Sn','Cín',14,5,'kov','118,7'],
+[51,'Sb','Antimon',15,5,'pol','121,8'],
+[52,'Te','Tellur',16,5,'pol','127,6',['telur','tellurium']],
+[53,'I','Jod',17,5,'hal','126,9',['jód','iod','ijod']],
+[54,'Xe','Xenon',18,5,'vzp','131,3'],
+[55,'Cs','Cesium',1,6,'alk','132,9',['caesium']],
+[56,'Ba','Baryum',2,6,'erd','137,3',['barium']],
+[57,'La','Lanthan',3,6,'lan','138,9',['lantan','lanthanum']],
+[58,'Ce','Cer',null,9,'lan','140,1',['cerium']],
+[59,'Pr','Praseodym',null,9,'lan','140,9',['praseodymium']],
+[60,'Nd','Neodym',null,9,'lan','144,2',['neodymium']],
+[61,'Pm','Promethium',null,9,'lan','145',['prometheum','prometium']],
+[62,'Sm','Samarium',null,9,'lan','150,4'],
+[63,'Eu','Europium',null,9,'lan','152,0'],
+[64,'Gd','Gadolinium',null,9,'lan','157,3'],
+[65,'Tb','Terbium',null,9,'lan','158,9'],
+[66,'Dy','Dysprosium',null,9,'lan','162,5'],
+[67,'Ho','Holmium',null,9,'lan','164,9'],
+[68,'Er','Erbium',null,9,'lan','167,3'],
+[69,'Tm','Thulium',null,9,'lan','168,9',['tulium']],
+[70,'Yb','Ytterbium',null,9,'lan','173,0',['yterbium']],
+[71,'Lu','Lutecium',null,9,'lan','175,0',['lutetium','luthecium']],
+[72,'Hf','Hafnium',4,6,'kov','178,5'],
+[73,'Ta','Tantal',5,6,'kov','180,9',['tantalum']],
+[74,'W','Wolfram',6,6,'kov','183,8',['volfram']],
+[75,'Re','Rhenium',7,6,'kov','186,2',['renium']],
+[76,'Os','Osmium',8,6,'kov','190,2'],
+[77,'Ir','Iridium',9,6,'kov','192,2'],
+[78,'Pt','Platina',10,6,'kov','195,1',['platinum']],
+[79,'Au','Zlato',11,6,'kov','197,0'],
+[80,'Hg','Rtuť',12,6,'kov','200,6'],
+[81,'Tl','Thallium',13,6,'kov','204,4',['talium','thalium']],
+[82,'Pb','Olovo',14,6,'kov','207,2'],
+[83,'Bi','Bismut',15,6,'kov','209,0',['vizmut','bizmut']],
+[84,'Po','Polonium',16,6,'pol','209'],
+[85,'At','Astat',17,6,'hal','210',['astatin']],
+[86,'Rn','Radon',18,6,'vzp','222'],
+[87,'Fr','Francium',1,7,'alk','223'],
+[88,'Ra','Radium',2,7,'erd','226'],
+[89,'Ac','Aktinium',3,7,'akt','227',['actinium']],
+[90,'Th','Thorium',null,10,'akt','232,0',['torium']],
+[91,'Pa','Protaktinium',null,10,'akt','231,0',['protactinium']],
+[92,'U','Uran',null,10,'akt','238,0',['uranium']],
+[93,'Np','Neptunium',null,10,'akt','237'],
+[94,'Pu','Plutonium',null,10,'akt','244'],
+[95,'Am','Americium',null,10,'akt','243',['amerikum']],
+[96,'Cm','Curium',null,10,'akt','247',['kurium']],
+[97,'Bk','Berkelium',null,10,'akt','247',['berklium']],
+[98,'Cf','Kalifornium',null,10,'akt','251',['californium']],
+[99,'Es','Einsteinium',null,10,'akt','252',['einsteinum']],
+[100,'Fm','Fermium',null,10,'akt','257'],
+[101,'Md','Mendelevium',null,10,'akt','258',['mendelejevium']],
+[102,'No','Nobelium',null,10,'akt','259'],
+[103,'Lr','Lawrencium',null,10,'akt','262',['laurencium']],
+[104,'Rf','Rutherfordium',null,7,'kov','267',['rutherfordium']],
+[105,'Db','Dubnium',null,7,'kov','268'],
+[106,'Sg','Seaborgium',null,7,'kov','269'],
+[107,'Bh','Bohrium',null,7,'kov','270'],
+[108,'Hs','Hassium',null,7,'kov','270',['hasium']],
+[109,'Mt','Meitnerium',null,7,'kov','278'],
+[110,'Ds','Darmstadtium',null,7,'kov','281'],
+[111,'Rg','Roentgenium',null,7,'kov','282',['rentgenium','röntgenium']],
+[112,'Cn','Kopernicium',null,7,'kov','285',['copernicium']],
+[113,'Nh','Nihonium',null,7,'kov','286'],
+[114,'Fl','Flerovium',null,7,'kov','289'],
+[115,'Mc','Moscovium',null,7,'kov','290',['moskovium']],
+[116,'Lv','Livermorium',null,7,'kov','293'],
+[117,'Ts','Tennessin',null,7,'hal','294',['tennessine','tenessin']],
+[118,'Og','Oganesson',null,7,'vzp','294',['oganeson']]
+];
+/* doplň skupiny 4.–12. pro 7. periodu (Rf–Cn) a 13.–18. (Nh–Og) */
+[[104,4],[105,5],[106,6],[107,7],[108,8],[109,9],[110,10],[111,11],[112,12],
+ [113,13],[114,14],[115,15],[116,16],[117,17],[118,18]].forEach(([z,g])=>{ E[z-1][3]=g; });
+
+const byZ = {}; E.forEach(e=>byZ[e[0]]=e);
+
+/* ============ POMOCNÉ ============ */
+const norm = s => (s||'').toString().toLowerCase().trim()
+  .normalize('NFD').replace(/[̀-ͯ]/g,'')
+  .replace(/\s+/g,'').replace(/[^a-z0-9]/g,'');
+
+function accepted(el){
+  const list=[el[2]].concat(el[7]||[]);
+  return list.map(norm);
+}
+
+/* ============ STAV ============ */
+const S = {
+  mode:'name', range:'20', auto:true, sound:true, shuffle:false,
+  cur:null, started:false, t0:0, timer:null,
+  ok:0, bad:0, streak:0, best:0,
+  status:{},          // z -> 'ok' | 'err'
+  firstTry:{},        // z -> true/false
+  tries:{},           // z -> počet pokusů
+  order:[], revealAll:false
+};
+
+/* ============ ZVUK ============ */
+let AC=null;
+function beep(type){
+  if(!S.sound) return;
+  try{
+    AC = AC || new (window.AudioContext||window.webkitAudioContext)();
+    const seq = type==='ok' ? [[660,0],[880,.09],[1180,.18]]
+              : type==='bad'? [[240,0],[170,.12]]
+              : [[520,0]];
+    seq.forEach(([f,d])=>{
+      const o=AC.createOscillator(), g=AC.createGain();
+      o.type= type==='bad' ? 'sawtooth':'sine';
+      o.frequency.value=f;
+      g.gain.setValueAtTime(.0001,AC.currentTime+d);
+      g.gain.exponentialRampToValueAtTime(.16,AC.currentTime+d+.02);
+      g.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+d+.22);
+      o.connect(g);g.connect(AC.destination);
+      o.start(AC.currentTime+d);o.stop(AC.currentTime+d+.25);
+    });
+  }catch(e){}
+}
+
+/* ============ ROZSAH ============ */
+function inScope(z){
+  const e=byZ[z];
+  switch(S.range){
+    case '20': return z<=20;
+    case '36': return z<=36;
+    case '56': return z<=56;
+    case 'main': return [1,2,13,14,15,16,17,18].includes(e[3]) && e[4]<=7 && z<=88 || (z<=20);
+    default: return true;
+  }
+}
+function scopeList(){ return E.filter(e=>inScope(e[0])).map(e=>e[0]); }
+
+/* ============ VYKRESLENÍ TABULKY ============ */
+const ptable=document.getElementById('ptable');
+function buildTable(){
+  ptable.innerHTML='';
+  const ROM=['I A','II A','III B','IV B','V B','VI B','VII B','VIII B','VIII B','VIII B','I B','II B','III A','IV A','V A','VI A','VII A','VIII A'];
+  for(let g=1;g<=18;g++){
+    const h=document.createElement('div');h.className='hdr';
+    h.innerHTML=g+'<br><span style="opacity:.6">'+ROM[g-1]+'</span>';
+    h.style.height='30px';h.style.fontSize='10px';h.style.lineHeight='1.15';
+    ptable.appendChild(h);
+  }
+  // hlavní blok, periody 1–7
+  for(let p=1;p<=7;p++){
+    for(let g=1;g<=18;g++){
+      const el=E.find(e=>e[3]===g && e[4]===p);
+      ptable.appendChild(el?makeCell(el):blank());
+    }
+  }
+  // mezera
+  const gap=document.createElement('div');gap.className='fgap';ptable.appendChild(gap);
+  // lanthanoidy
+  const l1=document.createElement('div');l1.className='flabel';l1.textContent='lanthanoidy';ptable.appendChild(l1);
+  for(let z=58;z<=71;z++) ptable.appendChild(makeCell(byZ[z]));
+  ptable.appendChild(blank());
+  // aktinoidy
+  const l2=document.createElement('div');l2.className='flabel';l2.textContent='aktinoidy';ptable.appendChild(l2);
+  for(let z=90;z<=103;z++) ptable.appendChild(makeCell(byZ[z]));
+  ptable.appendChild(blank());
+}
+function blank(){const d=document.createElement('div');d.className='cell blank';return d;}
+function makeCell(el){
+  const d=document.createElement('div');
+  d.className='cell '+CAT[el[5]][0];
+  d.dataset.z=el[0];
+  d.innerHTML='<span class="num">'+el[0]+'</span>'+
+              '<span class="sym"></span><span class="nm"></span>'+
+              '<span class="mass">'+el[6]+'</span>'+
+              '<span class="mark"></span>';
+  d.onclick=()=>pick(el[0]);
+  return d;
+}
+
+/* ============ OBSAH BUNĚK PODLE REŽIMU ============ */
+function paint(){
+  document.querySelectorAll('.cell[data-z]').forEach(d=>{
+    const z=+d.dataset.z, el=byZ[z], st=S.status[z];
+    const sym=d.querySelector('.sym'), nm=d.querySelector('.nm'), mk=d.querySelector('.mark');
+    d.classList.remove('done','err','dim','sel');
+    const scoped=inScope(z);
+    if(S.mode==='learn'){
+      sym.textContent=el[1]; nm.textContent=el[2]; mk.textContent='';
+      sym.style.opacity=1; nm.style.opacity=1;
+      if(!scoped) d.classList.add('dim');
+      if(S.cur===z) d.classList.add('sel');
+      return;
+    }
+    if(!scoped){ d.classList.add('dim'); }
+    const solved = st==='ok' || S.revealAll;
+    if(S.mode==='name'){
+      sym.textContent=el[1];
+      nm.textContent = (solved||st==='err') ? el[2] : '?';
+      nm.style.opacity = (solved||st==='err') ? 1 : .45;
+    }else{
+      nm.textContent=el[2];
+      sym.textContent = (solved||st==='err') ? el[1] : '?';
+      sym.style.opacity = (solved||st==='err') ? 1 : .45;
+    }
+    if(st==='ok'){ d.classList.add('done'); mk.textContent='✓'; }
+    else if(st==='err'){ d.classList.add('err'); mk.textContent='✕'; }
+    else mk.textContent='';
+    if(S.cur===z) d.classList.add('sel');
+  });
+  updateStats();
+}
+
+/* ============ STATISTIKY ============ */
+function updateStats(){
+  const list=scopeList();
+  const doneCnt=list.filter(z=>S.status[z]==='ok').length;
+  document.getElementById('sOk').textContent=S.ok;
+  document.getElementById('sBad').textContent=S.bad;
+  document.getElementById('sStreak').textContent=S.streak;
+  document.getElementById('sLeft').textContent=Math.max(0,list.length-doneCnt);
+  document.getElementById('bar').style.width=(list.length?doneCnt/list.length*100:0)+'%';
+}
+function tick(){
+  if(!S.started)return;
+  const s=Math.floor((Date.now()-S.t0)/1000);
+  document.getElementById('sTime').textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+}
+
+/* ============ VÝBĚR PRVKU ============ */
+const bigcard=document.getElementById('bigcard');
+const qtitle=document.getElementById('qtitle');
+const answer=document.getElementById('answer');
+const feedback=document.getElementById('feedback');
+
+function pick(z){
+  if(S.mode!=='learn' && !inScope(z)){
+    flash('Tenhle prvek teď není v tvém rozsahu. Přepni „Rozsah“ nahoře.','info'); return;
+  }
+  if(!S.started && S.mode!=='learn') startGame(false);
+  S.cur=z; paint();
+  const el=byZ[z];
+  bigcard.className='bigcard '+CAT[el[5]][0];
+
+  if(S.mode==='learn'){
+    bigcard.innerHTML='<span class="bnum">'+el[0]+'</span><span class="bsym">'+el[1]+'</span><span class="bnm">'+el[2]+'</span>';
+    qtitle.innerHTML='<b>'+el[2]+'</b> ('+el[1]+') – prohlížíš si prvek';
+    answer.disabled=true; answer.value='';
+    feedback.className='feedback info';
+    feedback.innerHTML='<div class="infogrid">'+
+      '<div><s>protonové číslo</s>'+el[0]+'</div>'+
+      '<div><s>skupina</s>'+(el[3]||'–')+'</div>'+
+      '<div><s>perioda</s>'+(el[4]>7?(el[4]===9?'6 (lanthanoid)':'7 (aktinoid)'):el[4])+'</div>'+
+      '<div><s>rel. at. hmotnost</s>'+el[6]+'</div>'+
+      '<div><s>skupenství prvků</s>'+CAT[el[5]][1]+'</div></div>';
+    return;
+  }
+
+  if(S.mode==='name'){
+    bigcard.innerHTML='<span class="bnum">'+el[0]+'</span><span class="bsym">'+el[1]+'</span>'+
+      (S.status[z]==='ok'?'<span class="bnm">'+el[2]+'</span>':'<span class="bnm">???</span>');
+    qtitle.innerHTML='Jak se česky jmenuje prvek se značkou <b>'+el[1]+'</b>? (protonové číslo '+el[0]+')';
+    answer.placeholder='např. železo';
+  }else{
+    bigcard.innerHTML='<span class="bnum">'+el[0]+'</span>'+
+      (S.status[z]==='ok'?'<span class="bsym">'+el[1]+'</span>':'<span class="bsym">?</span>')+
+      '<span class="bnm">'+el[2]+'</span>';
+    qtitle.innerHTML='Jaká je značka prvku <b>'+el[2]+'</b>? (protonové číslo '+el[0]+')';
+    answer.placeholder='např. Fe';
+  }
+  answer.disabled=false; answer.value=''; answer.className='';
+  feedback.className='feedback info'; feedback.textContent='';
+  answer.focus();
+  document.querySelector('.cell.sel')?.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'});
+}
+
+function flash(msg,cls){feedback.className='feedback '+cls;feedback.textContent=msg;}
+
+/* ============ KONTROLA ODPOVĚDI ============ */
+function check(){
+  if(S.cur==null || S.mode==='learn') return;
+  const el=byZ[S.cur], val=answer.value;
+  if(!norm(val)){ flash('Nejdřív něco napiš 🙂','info'); return; }
+  const cell=document.querySelector('.cell[data-z="'+S.cur+'"]');
+  S.tries[S.cur]=(S.tries[S.cur]||0)+1;
+  const right = S.mode==='name'
+      ? accepted(el).includes(norm(val))
+      : norm(val)===norm(el[1]);
+
+  if(right){
+    const first = S.tries[S.cur]===1 && S.status[S.cur]!=='err';
+    if(first){ S.ok++; S.streak++; S.best=Math.max(S.best,S.streak); S.firstTry[S.cur]=true; }
+    S.status[S.cur]='ok';
+    answer.className='good';
+    const bs=bigcard.querySelector('.bsym'), bn=bigcard.querySelector('.bnm');
+    if(bs) bs.textContent=el[1];
+    if(bn) bn.textContent=el[2];
+    cell.classList.add('pop');setTimeout(()=>cell.classList.remove('pop'),460);
+    beep('ok');
+    const praise=['Výborně!','Super!','Přesně tak!','Paráda!','Trefa!','Jedeš!','Bezva!'];
+    flash('✓ '+praise[Math.floor(Math.random()*praise.length)]+'  '+el[1]+' = '+el[2]+'  ('+CAT[el[5]][1]+')','ok');
+    paint();
+    const list=scopeList();
+    if(list.every(z=>S.status[z]==='ok')){ setTimeout(finish,700); return; }
+    if(S.auto) setTimeout(nextUnsolved,750);
+  }else{
+    if(S.status[S.cur]!=='ok'){ S.bad++; S.streak=0; S.status[S.cur]='err'; S.firstTry[S.cur]=false; }
+    answer.className='wrong';
+    cell.classList.add('shake');setTimeout(()=>cell.classList.remove('shake'),420);
+    beep('bad');
+    const correct = S.mode==='name' ? el[2] : el[1];
+    flash('✕ To není ono. Správně je: '+correct+'  ('+el[1]+' = '+el[2]+'). Zkus to napsat ještě jednou – zapamatuješ si to líp.','bad');
+    paint();
+    setTimeout(()=>{answer.value='';answer.className='';answer.focus();},900);
+  }
+}
+
+function nextUnsolved(){
+  const list=S.order.length?S.order:scopeList();
+  const start=list.indexOf(S.cur);
+  for(let i=1;i<=list.length;i++){
+    const z=list[(start+i+list.length)%list.length];
+    if(S.status[z]!=='ok'){ pick(z); return; }
+  }
+}
+
+/* ============ START / KONEC ============ */
+function startGame(reset=true){
+  if(reset){
+    S.status={};S.firstTry={};S.tries={};S.ok=0;S.bad=0;S.streak=0;S.best=0;S.revealAll=false;S.cur=null;
+  }
+  S.started=true;S.t0=S.t0&&!reset?S.t0:Date.now();
+  clearInterval(S.timer);S.timer=setInterval(tick,500);
+  S.order=scopeList();
+  if(S.shuffle) S.order.sort(()=>Math.random()-.5);
+  paint();
+  if(reset && S.mode!=='learn'){ pick(S.order[0]); }
+}
+
+function finish(){
+  clearInterval(S.timer);S.started=false;
+  const list=scopeList();
+  const good=list.filter(z=>S.firstTry[z]===true).length;
+  const total=list.length;
+  const pct=total?Math.round(good/total*100):0;
+  let g=5,emo='💪',txt='Nevadí! Zkus menší rozsah a dej to znovu – půjde to.';
+  if(pct>=90){g=1;emo='🏆';txt='Perfektní! Tohle bys dal/a i u tabule.';}
+  else if(pct>=75){g=2;emo='🎉';txt='Moc pěkné! Ještě pár prvků doladit a je to jednička.';}
+  else if(pct>=60){g=3;emo='👍';txt='Dobrý základ. Projeď si chyby dole a zkus to znovu.';}
+  else if(pct>=45){g=4;emo='🙂';txt='Už to začíná, ale chce to ještě trénink.';}
+  const mistakes=list.filter(z=>S.firstTry[z]!==true);
+  const s=Math.floor((Date.now()-S.t0)/1000);
+  const time=Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+
+  document.getElementById('modal').innerHTML=
+    '<h2>'+emo+' Vyhodnocení</h2>'+
+    '<div class="grade">'+g+'</div>'+
+    '<div class="pct"><b>'+good+' z '+total+'</b> na první pokus · '+pct+' % · čas '+time+' · nejdelší série '+S.best+' 🔥</div>'+
+    '<p style="text-align:center;color:var(--txt-dim)">'+txt+'</p>'+
+    (mistakes.length?('<div class="mistakes"><h3>Tyhle si ještě projdi ('+mistakes.length+')</h3>'+
+      mistakes.map(z=>{const e=byZ[z];return '<div class="mrow"><span><b>'+e[1]+'</b> = '+e[2]+'</span><span style="color:var(--txt-dim)">č. '+e[0]+' · '+CAT[e[5]][1]+'</span></div>';}).join('')+
+      '</div>'):'<div class="mistakes"><h3 style="color:var(--ok)">Bez jediné chyby! 🌟</h3></div>')+
+    '<div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:18px;justify-content:center">'+
+      '<button class="btn" onclick="closeModal();startGame(true)">🔁 Zkusit znovu</button>'+
+      (mistakes.length?'<button class="btn ghost" onclick="closeModal();trainMistakes()">🎯 Trénovat jen chyby</button>':'')+
+      '<button class="btn ghost" onclick="closeModal()">Zavřít</button>'+
+    '</div>';
+  document.getElementById('overlay').classList.add('show');
+}
+function closeModal(){document.getElementById('overlay').classList.remove('show');}
+function trainMistakes(){
+  const list=scopeList().filter(z=>S.firstTry[z]!==true);
+  S.status={};S.firstTry={};S.tries={};S.ok=0;S.bad=0;S.streak=0;S.best=0;S.revealAll=false;
+  scopeList().forEach(z=>{ if(!list.includes(z)){ S.status[z]='ok'; S.firstTry[z]=true; } });
+  S.started=true;S.t0=Date.now();clearInterval(S.timer);S.timer=setInterval(tick,500);
+  S.order=list; if(S.shuffle) S.order.sort(()=>Math.random()-.5);
+  paint(); if(list.length) pick(list[0]);
+}
+
+/* ============ LEGENDA ============ */
+document.getElementById('legend').innerHTML=Object.keys(CAT).map(k=>
+  '<span class="lg"><i style="background:var(--'+({alk:'c-alk',erd:'c-erd',kov:'c-kov',pol:'c-pol',nek:'c-nek',hal:'c-hal',vzp:'c-vzp',lan:'c-lan',akt:'c-akt'})[k]+')"></i>'+CAT[k][1]+'</span>').join('');
+
+/* ============ OVLÁDACÍ PRVKY ============ */
+document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('[data-mode]').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); S.mode=b.dataset.mode;
+  S.cur=null; startGame(true);
+  if(S.mode==='learn'){
+    answer.disabled=true;answer.value='';
+    qtitle.textContent='Režim učení – klikni na kterýkoli prvek a přečti si o něm všechno. Až budeš připravený/á, přepni na zkoušení.';
+    feedback.textContent='';bigcard.className='bigcard empty';bigcard.innerHTML='<span style="font-size:32px">📖</span>';
+    paint();
+  }
+});
+document.querySelectorAll('[data-range]').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('[data-range]').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); S.range=b.dataset.range; startGame(true);
+});
+const tog=(id,key,onTxt,offTxt)=>{
+  const b=document.getElementById(id);
+  b.onclick=()=>{ S[key]=!S[key]; b.classList.toggle('on',S[key]); b.textContent=S[key]?onTxt:offTxt;
+    if(key==='shuffle') startGame(true); };
+};
+tog('bAuto','auto','➡️ Automaticky další','⏸️ Automaticky další');
+tog('bSound','sound','🔊 Zvuk','🔇 Zvuk');
+tog('bShuffle','shuffle','🎲 Náhodné pořadí','🔢 Podle čísla');
+document.getElementById('bStart').onclick=()=>startGame(true);
+document.getElementById('bFinish').onclick=finish;
+document.getElementById('bReveal').onclick=()=>{S.revealAll=!S.revealAll;paint();};
+document.getElementById('bCheck').onclick=check;
+document.getElementById('bSkip').onclick=nextUnsolved;
+document.getElementById('bHint').onclick=()=>{
+  if(S.cur==null||S.mode==='learn')return;
+  const el=byZ[S.cur];
+  const t = S.mode==='name' ? el[2] : el[1];
+  const shown = t.slice(0, S.mode==='name'?2:1);
+  flash('💡 Začíná na „'+shown+'“ a má '+t.length+' písmen. Je to '+CAT[el[5]][1]+'.','info');
+  answer.focus();
+};
+answer.addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();check();} });
+document.getElementById('overlay').onclick=e=>{ if(e.target.id==='overlay') closeModal(); };
+
+/* ============ SPUŠTĚNÍ ============ */
+buildTable();
+startGame(true);
+</script>
+</body>
+</html>
