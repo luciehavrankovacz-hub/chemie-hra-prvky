@@ -273,15 +273,22 @@ table.lb .r3 td:first-child{color:#cd7f32}
   <div class="row">
     <span class="lbl">Skupina</span>
     <button class="chip on" data-group="all">všechny</button>
-    <button class="chip" data-group="1">I. A</button>
-    <button class="chip" data-group="2">II. A</button>
-    <button class="chip" data-group="13">III. A</button>
-    <button class="chip" data-group="14">IV. A</button>
-    <button class="chip" data-group="15">V. A</button>
-    <button class="chip" data-group="16">VI. A</button>
-    <button class="chip" data-group="17">VII. A</button>
-    <button class="chip" data-group="18">VIII. A</button>
-    <button class="chip" data-group="B">B – přechodné kovy</button>
+    <button class="chip" data-group="1">I.A</button>
+    <button class="chip" data-group="2">II.A</button>
+    <button class="chip" data-group="3">III.B</button>
+    <button class="chip" data-group="4">IV.B</button>
+    <button class="chip" data-group="5">V.B</button>
+    <button class="chip" data-group="6">VI.B</button>
+    <button class="chip" data-group="7">VII.B</button>
+    <button class="chip" data-group="8910">VIII.B</button>
+    <button class="chip" data-group="11">I.B</button>
+    <button class="chip" data-group="12">II.B</button>
+    <button class="chip" data-group="13">III.A</button>
+    <button class="chip" data-group="14">IV.A</button>
+    <button class="chip" data-group="15">V.A</button>
+    <button class="chip" data-group="16">VI.A</button>
+    <button class="chip" data-group="17">VII.A</button>
+    <button class="chip" data-group="18">VIII.A</button>
     <button class="chip" data-group="lan">lanthanoidy</button>
     <button class="chip" data-group="akt">aktinoidy</button>
   </div>
@@ -505,11 +512,12 @@ function beep(type){
 /* ============ ROZSAH ============ */
 function inGroup(e){
   switch(S.group){
-    case 'all': return true;
-    case 'B':   return e[3]>=3 && e[3]<=12 && e[5]!=='lan' && e[5]!=='akt';
-    case 'lan': return e[5]==='lan';
-    case 'akt': return e[5]==='akt';
-    default:    return e[3]===+S.group;
+    case 'all':  return true;
+    case '8910': return e[3]>=8 && e[3]<=10;            /* VIII.B = tři sloupce */
+    case 'lan':  return e[5]==='lan';
+    case 'akt':  return e[5]==='akt';
+    case '3':    return e[3]===3 && e[5]!=='lan' && e[5]!=='akt';  /* La a Ac patří k řadám dole */
+    default:     return e[3]===+S.group;
   }
 }
 function inRange(z){
@@ -524,11 +532,12 @@ function inRange(z){
 }
 function inScope(z){ return inRange(z) && inGroup(byZ[z]); }
 function scopeList(){ return E.filter(e=>inScope(e[0])).map(e=>e[0]); }
+const RIM={'1':'I.A','2':'II.A','3':'III.B','4':'IV.B','5':'V.B','6':'VI.B','7':'VII.B','8910':'VIII.B',
+           '11':'I.B','12':'II.B','13':'III.A','14':'IV.A','15':'V.A','16':'VI.A','17':'VII.A','18':'VIII.A',
+           'lan':'lanthanoidy','akt':'aktinoidy'};
 function nazevRozsahu(){
   const r={'20':'prvních 20','36':'prvních 36','56':'prvních 56','main':'hlavní skupiny','118':'celá tabulka'}[S.range];
-  const g={'all':'','B':' · B skupiny','lan':' · lanthanoidy','akt':' · aktinoidy'}[S.group];
-  const rim={'1':'I.A','2':'II.A','13':'III.A','14':'IV.A','15':'V.A','16':'VI.A','17':'VII.A','18':'VIII.A'};
-  return r + (g!==undefined ? g : ' · '+rim[S.group]);
+  return S.group==='all' ? r : r+' · '+RIM[S.group];
 }
 
 /* ============ VYKRESLENÍ TABULKY ============ */
@@ -877,15 +886,14 @@ document.querySelectorAll('[data-range]').forEach(b=>b.onclick=()=>{
   b.classList.add('on'); S.range=b.dataset.range; startGame(true);
 });
 document.querySelectorAll('[data-group]').forEach(b=>b.onclick=()=>{
-  const puvodni=S.group;
   S.group=b.dataset.group;
-  if(scopeList().length===0){
-    S.group=puvodni;
-    flash('V téhle skupině a rozsahu není žádný prvek. Zkus větší rozsah.','info');
-    return;
-  }
   document.querySelectorAll('[data-group]').forEach(x=>x.classList.remove('on'));
   b.classList.add('on');
+  /* když v malém rozsahu žádný takový prvek není, sám přepnu na celou tabulku */
+  if(scopeList().length===0){
+    S.range='118';
+    document.querySelectorAll('[data-range]').forEach(x=>x.classList.toggle('on', x.dataset.range==='118'));
+  }
   startGame(true);
 });
 const tog=(id,key,onTxt,offTxt)=>{
