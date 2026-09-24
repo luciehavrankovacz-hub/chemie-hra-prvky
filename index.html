@@ -526,7 +526,7 @@ function inRange(z){
     case '20': return z<=20;
     case '36': return z<=36;
     case '56': return z<=56;
-    case 'main': return [1,2,13,14,15,16,17,18].includes(e[3]) && e[4]<=7 && z<=88 || (z<=20);
+    case 'main': return [1,2,13,14,15,16,17,18].includes(e[3]) && e[5]!=='lan' && e[5]!=='akt';
     default: return true;
   }
 }
@@ -744,7 +744,8 @@ function nextUnsolved(){
 /* ============ START / KONEC ============ */
 function startGame(reset=true){
   if(reset){
-    S.status={};S.firstTry={};S.tries={};S.ok=0;S.bad=0;S.streak=0;S.best=0;S.revealAll=false;S.cur=null;
+    S.status={};S.firstTry={};S.tries={};S.ok=0;S.bad=0;S.streak=0;S.best=0;
+    S.revealAll=false;S.podvod=false;S.cur=null;
   }
   S.started=true;S.t0=S.t0&&!reset?S.t0:Date.now();
   clearInterval(S.timer);S.timer=setInterval(tick,500);
@@ -779,13 +780,19 @@ function finish(){
     '<div style="text-align:center;color:var(--txt-dim);font-size:13px;margin-bottom:6px">'+
       posledniVysledek.rezim+' · '+posledniVysledek.rozsah+'</div>'+
     '<p style="text-align:center;color:var(--txt-dim)">'+txt+'</p>'+
-    '<div class="mistakes"><h3 style="color:var(--acc)">Zapiš se do žebříčku</h3>'+
-      '<div class="jmeno">'+
-        '<input type="text" id="lbName" maxlength="18" placeholder="Tvoje jméno nebo přezdívka…" autocomplete="off">'+
-        '<button class="btn" onclick="ulozSkore()">💾 Uložit</button>'+
-      '</div>'+
-      '<div id="lbMsg" class="small-note"></div>'+
-    '</div>'+
+    (hotovo() && !S.podvod
+      ? '<div class="mistakes"><h3 style="color:var(--acc)">Zapiš se do žebříčku</h3>'+
+          '<div class="jmeno">'+
+            '<input type="text" id="lbName" maxlength="18" placeholder="Tvoje jméno nebo přezdívka…" autocomplete="off">'+
+            '<button class="btn" onclick="ulozSkore()">💾 Uložit</button>'+
+          '</div>'+
+          '<div id="lbMsg" class="small-note"></div>'+
+        '</div>'
+      : '<div class="mistakes"><h3 style="color:var(--warn)">Do žebříčku se tenhle pokus nepočítá</h3>'+
+          '<div class="small-note">'+
+          (S.podvod ? 'Měl/a jsi zapnuté „Ukázat vše“, takže jsi odpovědi viděl/a. Dej Hrát znovu a zkus to naostro. 🙂'
+                    : 'Nedohrál/a jsi všechny prvky. Do žebříčku se počítá jen kompletně dohraná hra.')+
+          '</div></div>')+
     (mistakes.length?('<div class="mistakes"><h3>Tyhle sis spletl/a ('+mistakes.length+')</h3>'+
       mistakes.map(z=>{const e=byZ[z];return '<div class="mrow"><span><b>'+e[1]+'</b> = '+e[2]+'</span><span style="color:var(--txt-dim)">č. '+e[0]+' · '+CAT[e[5]][1]+'</span></div>';}).join('')+
       '</div>'):'<div class="mistakes"><h3 style="color:var(--ok)">Bez jediné chyby! 🌟</h3></div>')+
@@ -821,8 +828,11 @@ function ulozSkore(){
   beep('ok');
   zobrazZebricek();
 }
+/* Řadíme podle BODŮ = počtu správných odpovědí. Kdo si dá celou tabulku,
+   může nasbírat víc než ten, kdo udělá jen šest halogenů. Při shodě
+   rozhoduje přesnost a pak čas. */
 function poradi(){
-  return nactiZebricek().sort((a,b)=> b.pct-a.pct || a.cas-b.cas || b.total-a.total );
+  return nactiZebricek().sort((a,b)=> b.good-a.good || b.pct-a.pct || a.cas-b.cas );
 }
 function zobrazZebricek(){
   const z=poradi();
@@ -832,16 +842,17 @@ function zobrazZebricek(){
     '<h2>🏆 Žebříček</h2>'+
     '<div class="pct">Nejlepší výsledky na tomhle počítači</div>'+
     (z.length
-      ? '<table class="lb"><tr><th></th><th>Jméno</th><th>Skóre</th><th>%</th><th>Čas</th><th>Co</th></tr>'+
+      ? '<table class="lb"><tr><th></th><th>Jméno</th><th>Body</th><th>%</th><th>Čas</th><th>Co hrál</th></tr>'+
         z.slice(0,15).map((r,i)=>'<tr class="'+(r.id===posledniId?'me ':'')+'r'+(i+1)+'">'+
           '<td>'+med(i)+'</td>'+
           '<td>'+r.jmeno.replace(/[<>&]/g,'')+'</td>'+
-          '<td>'+r.good+'/'+r.total+'</td>'+
-          '<td><b>'+r.pct+' %</b></td>'+
+          '<td><b>'+r.good+'</b> <span style="color:var(--txt-dim)">z '+r.total+'</span></td>'+
+          '<td>'+r.pct+' %</td>'+
           '<td>'+cas(r.cas)+'</td>'+
           '<td style="color:var(--txt-dim);font-size:12px">'+r.rozsah+'<br>'+r.rezim+'</td></tr>').join('')+
         '</table>'+
-        '<div class="small-note">Žebříček je uložený jen v tomhle prohlížeči na tomhle počítači. Kdo hraje na svém, má svůj vlastní.</div>'
+        '<div class="small-note">Body = počet správně doplněných prvků, takže větší rozsah = víc bodů. '+
+        'Při shodě rozhodují procenta a pak čas.<br>Žebříček je uložený jen v tomhle prohlížeči na tomhle počítači.</div>'
       : '<div class="small-note">Zatím tu nikdo není. Dohraj hru a zapiš se jako první! 🙂</div>')+
     '<div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:18px;justify-content:center">'+
       '<button class="btn" onclick="closeModal();startGame(true)">🔁 Hrát</button>'+
@@ -881,19 +892,21 @@ document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{
     paint();
   }
 });
+/* Rozsah a Skupina jsou dvě různé cesty, jak si vybrat prvky.
+   Když klikneš na jednu, ta druhá se vrátí na výchozí – jinak by se
+   ořezávaly (např. „I.A" + „prvních 20" dalo jen 4 prvky místo 7). */
+function prepniChipy(sel, hodnota){
+  document.querySelectorAll('['+sel+']').forEach(x=>x.classList.toggle('on', x.dataset[sel.replace('data-','')]===hodnota));
+}
 document.querySelectorAll('[data-range]').forEach(b=>b.onclick=()=>{
-  document.querySelectorAll('[data-range]').forEach(x=>x.classList.remove('on'));
-  b.classList.add('on'); S.range=b.dataset.range; startGame(true);
+  S.range=b.dataset.range; S.group='all';
+  prepniChipy('data-range',S.range); prepniChipy('data-group','all');
+  startGame(true);
 });
 document.querySelectorAll('[data-group]').forEach(b=>b.onclick=()=>{
   S.group=b.dataset.group;
-  document.querySelectorAll('[data-group]').forEach(x=>x.classList.remove('on'));
-  b.classList.add('on');
-  /* když v malém rozsahu žádný takový prvek není, sám přepnu na celou tabulku */
-  if(scopeList().length===0){
-    S.range='118';
-    document.querySelectorAll('[data-range]').forEach(x=>x.classList.toggle('on', x.dataset.range==='118'));
-  }
+  S.range = S.group==='all' ? '20' : '118';   /* skupina = vždy celý sloupec */
+  prepniChipy('data-group',S.group); prepniChipy('data-range',S.range);
   startGame(true);
 });
 const tog=(id,key,onTxt,offTxt)=>{
@@ -907,7 +920,11 @@ tog('bShuffle','shuffle','🎲 Náhodné pořadí','🔢 Podle čísla');
 document.getElementById('bStart').onclick=()=>startGame(true);
 document.getElementById('bBoard').onclick=zobrazZebricek;
 document.getElementById('bFinish').onclick=finish;
-document.getElementById('bReveal').onclick=()=>{S.revealAll=!S.revealAll;paint();};
+document.getElementById('bReveal').onclick=()=>{
+  S.revealAll=!S.revealAll;
+  if(S.revealAll && S.mode!=='learn') S.podvod=true;   /* tenhle pokus už se do žebříčku nepočítá */
+  paint();
+};
 document.getElementById('bCheck').onclick=check;
 document.getElementById('bSkip').onclick=nextUnsolved;
 document.getElementById('bHint').onclick=()=>{
